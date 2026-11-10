@@ -1,0 +1,27 @@
+{
+  "name": "n8n-api-chatbot-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An n8n workflow template that connects differing catalog APIs to an LLM chatbot through small, tested adapters.",
+  "license": "MIT",
+  "author": "Fatih Ä°nci",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:workflow": "node scripts/build-workflow.js",
+    "check:workflow": "node scripts/build-workflow.js --check",
+    "lint": "eslint .",
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:integration": "node --test --test-concurrency=1 \"test/integration/*.test.js\"",
+    "up": "docker compose up -d --build",
+    "down": "docker compose down -v",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
+    "eslint": "10.14.0",
+    "globals": "17.14.0"
+  }
+}
