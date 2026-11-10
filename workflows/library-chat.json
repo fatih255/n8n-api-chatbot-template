@@ -1,0 +1,577 @@
+{
+  "id": "LibChatTemplate1",
+  "name": "Library chat: catalog APIs to LLM",
+  "active": false,
+  "nodes": [
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000001",
+      "name": "Chat webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "0d6a1d2e-5a3b-4c7e-8f10-6c1b2a3d4e5f",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "library-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000002",
+      "name": "Prepare request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Generated from src/request.js by scripts/build-workflow.js.\n// Edit the source file and run `npm run build:workflow`; changes made here are overwritten.\nconst lib = (() => {\n  const module = { exports: {} };\n// Validates the incoming chat request and turns the question into search text.\n// This file is inlined into the \"Prepare request\" Code node by\n// scripts/build-workflow.js, so it must stay plain JS without require().\n\nconst STOPWORDS = new Set(\n  (\n    'a about an and any are as at be book books by can could do does find for from get ' +\n    'have how i in is it me my of on or please recommend show some something that the ' +\n    'there they this to want what where which who with you your'\n  ).split(' ')\n);\n\nconst MAX_QUESTION_LENGTH = 500;\nconst MAX_SEARCH_WORDS = 6;\n\nfunction toSearchText(question) {\n  const words = question\n    .toLowerCase()\n    .split(/[^\\p{L}\\p{N}]+/u)\n    .filter((w) => w.length > 1 && !STOPWORDS.has(w));\n  const unique = [...new Set(words)].slice(0, MAX_SEARCH_WORDS);\n  return unique.length ? unique.join(' ') : question.trim();\n}\n\n// body: the parsed JSON body of the webhook call, e.g.\n//   { \"library\": \"harbor\", \"question\": \"Do you have books about urban gardening?\" }\n// Returns the context object the rest of the workflow passes along.\n// `route` is what the Switch node routes on: the library id, or \"invalid\".\nfunction prepareRequest(body) {\n  const input = body && typeof body === 'object' ? body : {};\n  const library = typeof input.library === 'string' ? input.library.trim().toLowerCase() : '';\n  const question = typeof input.question === 'string' ? input.question.trim() : '';\n\n  const errors = [];\n  if (!/^[a-z0-9-]{1,40}$/.test(library)) errors.push('library must be a short id like \"harbor\"');\n  if (question.length < 3) errors.push('question must be at least 3 characters');\n  if (question.length > MAX_QUESTION_LENGTH) errors.push(`question must be at most ${MAX_QUESTION_LENGTH} characters`);\n\n  if (errors.length) {\n    return { route: 'invalid', library, question, error: errors.join('; ') };\n  }\n  return { route: library, library, question, searchText: toSearchText(question) };\n}\n\n// Entry point used by the Code node.\nfunction runInN8n({ $input }) {\n  return [{ json: prepareRequest($input.first().json.body) }];\n}\n\nmodule.exports = { prepareRequest, toSearchText, runInN8n };\n  return module.exports;\n})();\nreturn lib.runInN8n({ $input, $ });\n"
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000003",
+      "name": "Route by library",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "invalid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invalid"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c2",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "harbor",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "harbor"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c3",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "summit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "summit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c4",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "meadow",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "meadow"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "unknown"
+        }
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000004",
+      "name": "Respond: invalid request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        -80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.error }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000005",
+      "name": "Harbor: search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.HARBOR_API_URL }}/api/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.searchText }}"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.HARBOR_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000006",
+      "name": "Summit: get token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUMMIT_API_URL }}/auth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ clientId: $env.SUMMIT_CLIENT_ID, clientSecret: $env.SUMMIT_CLIENT_SECRET }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000007",
+      "name": "Summit: query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUMMIT_API_URL }}/catalog/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: { text: $('Prepare request').first().json.searchText, max: 5 } }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000008",
+      "name": "Meadow: search (XML)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        560
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.MEADOW_API_URL }}/opac/find",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.MEADOW_API_KEY }}"
+            },
+            {
+              "name": "term",
+              "value": "={{ $json.searchText }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000009",
+      "name": "Respond: unknown library",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        800
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Unknown library: ' + $json.library }) }}",
+        "options": {
+          "responseCode": 404
+        }
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000010",
+      "name": "Normalize results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Generated from src/normalize.js by scripts/build-workflow.js.\n// Edit the source file and run `npm run build:workflow`; changes made here are overwritten.\nconst lib = (() => {\n  const module = { exports: {} };\n// One adapter per library: it knows that library's response format and maps it\n// to the shared record shape below. This file is inlined into the\n// \"Normalize results\" Code node by scripts/build-workflow.js, so it must stay\n// plain JS without require().\n//\n// Normalized record:\n//   { library, id, title, authors: string[], year: number|null, available: boolean|null, url: string|null }\n\nconst MAX_RESULTS = 5;\n\n// ---------------------------------------------------------------------------\n// Minimal XML reader. It handles elements, attributes, text, entities, CDATA,\n// comments and the XML declaration, which is all a catalog record needs. It\n// doesn't handle DTDs or namespaces.\n\nconst ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '\"', apos: \"'\" };\n\nfunction decodeEntities(text) {\n  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (whole, ref) => {\n    if (ref[0] === '#') {\n      const code = ref[1] === 'x' || ref[1] === 'X' ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);\n      return Number.isFinite(code) ? String.fromCodePoint(code) : whole;\n    }\n    return Object.prototype.hasOwnProperty.call(ENTITIES, ref) ? ENTITIES[ref] : whole;\n  });\n}\n\nfunction parseXml(xml) {\n  if (typeof xml !== 'string') throw new Error('XML input must be a string');\n  const root = { name: '#root', attrs: {}, children: [], text: '' };\n  const stack = [root];\n  const token = /<!--[\\s\\S]*?-->|<\\?[\\s\\S]*?\\?>|<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|<\\/([^\\s>]+)\\s*>|<([^\\s/>!?]+)((?:\\s+[^\\s=/>]+\\s*=\\s*(?:\"[^\"]*\"|'[^']*'))*)\\s*(\\/?)>|([^<]+)/g;\n  let match;\n  let consumed = 0;\n  while ((match = token.exec(xml)) !== null) {\n    if (match.index !== consumed) break;\n    consumed = token.lastIndex;\n    const [, cdata, closeName, openName, attrText, selfClose, text] = match;\n    const current = stack[stack.length - 1];\n    if (cdata !== undefined) {\n      current.text += cdata;\n    } else if (closeName) {\n      if (current.name !== closeName) throw new Error(`Unexpected </${closeName}>, expected </${current.name}>`);\n      stack.pop();\n    } else if (openName) {\n      const attrs = {};\n      const attr = /([^\\s=]+)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')/g;\n      let a;\n      while ((a = attr.exec(attrText)) !== null) attrs[a[1]] = decodeEntities(a[2] !== undefined ? a[2] : a[3]);\n      const node = { name: openName, attrs, children: [], text: '' };\n      current.children.push(node);\n      if (!selfClose) stack.push(node);\n    } else if (text !== undefined) {\n      current.text += decodeEntities(text);\n    }\n    // Anything else is a comment or the XML declaration, which we skip.\n  }\n  if (consumed !== xml.length) throw new Error(`Malformed XML near position ${consumed}`);\n  if (stack.length !== 1) throw new Error(`Unclosed <${stack[stack.length - 1].name}>`);\n  const elements = root.children;\n  if (elements.length !== 1) throw new Error('XML must have exactly one root element');\n  return elements[0];\n}\n\nfunction child(node, name) {\n  return node.children.find((c) => c.name === name) || null;\n}\n\nfunction children(node, name) {\n  return node.children.filter((c) => c.name === name);\n}\n\nfunction textOf(node) {\n  return node ? node.text.trim() : '';\n}\n\n// ---------------------------------------------------------------------------\n// Small helpers shared by adapters.\n\nfunction toYear(value) {\n  const match = /\\b(\\d{4})\\b/.exec(String(value == null ? '' : value));\n  return match ? Number(match[1]) : null;\n}\n\nfunction cleanString(value) {\n  return typeof value === 'string' ? value.replace(/\\s+/g, ' ').trim() : '';\n}\n\n// \"Whitlock, Dana; Raman, Priya\" -> [\"Dana Whitlock\", \"Priya Raman\"]\nfunction splitInvertedNames(value) {\n  return cleanString(value)\n    .split(';')\n    .map((name) => name.trim())\n    .filter(Boolean)\n    .map((name) => {\n      const [last, first] = name.split(',').map((s) => s.trim());\n      return first ? `${first} ${last}` : last;\n    });\n}\n\n// ---------------------------------------------------------------------------\n// Adapters. To add a library, add an entry here, add its branch in the\n// workflow, and run `npm run build:workflow`.\n\nconst adapters = {\n  // { total, results: [{ id, title, authors[], year, available, url }] }\n  harbor: {\n    name: 'Harbor Library',\n    format: 'json',\n    normalize(body) {\n      const results = body && Array.isArray(body.results) ? body.results : [];\n      return results.map((r) => ({\n        id: String(r.id),\n        title: cleanString(r.title),\n        authors: Array.isArray(r.authors) ? r.authors.map(cleanString).filter(Boolean) : [],\n        year: toYear(r.year),\n        available: typeof r.available === 'boolean' ? r.available : null,\n        url: r.url || null,\n      }));\n    },\n  },\n\n  // { data: { items: [{ recordId, name, creator: \"Last, First; ...\", publicationDate, holdings: { total, onLoan }, link }] } }\n  summit: {\n    name: 'Summit Library',\n    format: 'json',\n    normalize(body) {\n      const items = body && body.data && Array.isArray(body.data.items) ? body.data.items : [];\n      return items.map((item) => {\n        const h = item.holdings;\n        const available = h && Number.isFinite(h.total) && Number.isFinite(h.onLoan) ? h.total - h.onLoan > 0 : null;\n        return {\n          id: String(item.recordId),\n          title: cleanString(item.name),\n          authors: splitInvertedNames(item.creator),\n          year: toYear(item.publicationDate),\n          available,\n          url: item.link || null,\n        };\n      });\n    },\n  },\n\n  // <response><hits count=\"n\"><record id=\"..\"><title/><author/>*<issued/><status/><permalink/></record></hits></response>\n  meadow: {\n    name: 'Meadow Library',\n    format: 'xml',\n    normalize(xml) {\n      const doc = parseXml(xml);\n      const hits = child(doc, 'hits');\n      if (!hits) return [];\n      return children(hits, 'record').map((rec) => {\n        const status = textOf(child(rec, 'status')).toLowerCase();\n        return {\n          id: rec.attrs.id || '',\n          title: cleanString(textOf(child(rec, 'title'))),\n          authors: children(rec, 'author').map(textOf).map(cleanString).filter(Boolean),\n          year: toYear(textOf(child(rec, 'issued'))),\n          available: status === 'on shelf' ? true : status === 'checked out' ? false : null,\n          url: textOf(child(rec, 'permalink')) || null,\n        };\n      });\n    },\n  },\n};\n\nfunction getAdapter(library) {\n  if (!Object.prototype.hasOwnProperty.call(adapters, library)) {\n    throw new Error(`No adapter for library \"${library}\"`);\n  }\n  return adapters[library];\n}\n\n// httpItem is the item the HTTP Request node produced: the parsed body for\n// JSON APIs, or { data: \"<xml...>\" } when the node reads the response as text.\nfunction normalizeResponse(library, httpItem) {\n  const adapter = getAdapter(library);\n  const body = adapter.format === 'xml' ? httpItem && httpItem.data : httpItem;\n  const seen = new Set();\n  return adapter\n    .normalize(body)\n    .filter((r) => r.title && !seen.has(r.id) && seen.add(r.id))\n    .slice(0, MAX_RESULTS)\n    .map((r) => ({ library, ...r }));\n}\n\n// Entry point used by the Code node.\nfunction runInN8n({ $input, $ }) {\n  const ctx = $('Prepare request').first().json;\n  const adapter = getAdapter(ctx.library);\n  const results = normalizeResponse(ctx.library, $input.first().json);\n  return [{ json: { ...ctx, libraryName: adapter.name, results } }];\n}\n\nmodule.exports = { adapters, getAdapter, normalizeResponse, parseXml, splitInvertedNames, toYear, runInN8n };\n  return module.exports;\n})();\nreturn lib.runInN8n({ $input, $ });\n"
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000011",
+      "name": "Build LLM request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Generated from src/answer.js by scripts/build-workflow.js.\n// Edit the source file and run `npm run build:workflow`; changes made here are overwritten.\nconst lib = (() => {\n  const module = { exports: {} };\n// Builds the chat completions request from normalized results, and shapes the\n// final webhook response. This file is inlined into the \"Build LLM request\" and\n// \"Shape response\" Code nodes by scripts/build-workflow.js, so it must stay\n// plain JS without require().\n\nconst SYSTEM_PROMPT = [\n  'You answer questions for a library chatbot.',\n  'Use only the numbered catalog results in the message. Cite them as [1], [2].',\n  'If the results do not answer the question, say so. Do not invent titles.',\n  'Keep the answer under 120 words.',\n].join(' ');\n\nfunction oneLine(value) {\n  return String(value == null ? '' : value).replace(/[\\s|]+/g, ' ').trim();\n}\n\nfunction formatResult(r, index) {\n  const available = r.available === true ? 'yes' : r.available === false ? 'no' : 'unknown';\n  return [\n    `[${index + 1}] ${oneLine(r.title)}`,\n    `authors: ${r.authors.length ? r.authors.map(oneLine).join(', ') : 'unknown'}`,\n    `year: ${r.year == null ? 'unknown' : r.year}`,\n    `available: ${available}`,\n    `url: ${r.url || 'none'}`,\n  ].join(' | ');\n}\n\n// ctx: { question, libraryName, results } from the Normalize step.\n// The model name is added by the HTTP Request node from LLM_MODEL.\nfunction buildLlmRequest(ctx) {\n  const lines = [`Question: ${oneLine(ctx.question)}`, `Library: ${oneLine(ctx.libraryName)}`];\n  if (ctx.results.length) {\n    lines.push('Catalog results:', ...ctx.results.map(formatResult));\n  } else {\n    lines.push('Catalog results: none');\n  }\n  return {\n    temperature: 0.2,\n    messages: [\n      { role: 'system', content: SYSTEM_PROMPT },\n      { role: 'user', content: lines.join('\\n') },\n    ],\n  };\n}\n\n// completion: an OpenAI-style chat completions response body.\nfunction buildResponse(ctx, completion) {\n  const choice = completion && Array.isArray(completion.choices) ? completion.choices[0] : null;\n  const answer = choice && choice.message && typeof choice.message.content === 'string' ? choice.message.content.trim() : '';\n  if (!answer) throw new Error('The LLM response had no message content');\n  return {\n    library: ctx.library,\n    libraryName: ctx.libraryName,\n    question: ctx.question,\n    answer,\n    sources: ctx.results.map((r, i) => ({\n      ref: i + 1,\n      id: r.id,\n      title: r.title,\n      authors: r.authors,\n      year: r.year,\n      available: r.available,\n      url: r.url,\n    })),\n    model: completion.model || null,\n  };\n}\n\n// Entry points used by the two Code nodes.\nfunction buildLlmRequestInN8n({ $input }) {\n  const ctx = $input.first().json;\n  return [{ json: { ...ctx, llmRequest: buildLlmRequest(ctx) } }];\n}\n\nfunction buildResponseInN8n({ $input, $ }) {\n  const ctx = $('Build LLM request').first().json;\n  return [{ json: buildResponse(ctx, $input.first().json) }];\n}\n\nmodule.exports = { SYSTEM_PROMPT, buildLlmRequest, buildResponse, formatResult, buildLlmRequestInN8n, buildResponseInN8n };\n  return module.exports;\n})();\nreturn lib.buildLlmRequestInN8n({ $input, $ });\n"
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000012",
+      "name": "Ask LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_BASE_URL }}/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.LLM_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json.llmRequest, model: $env.LLM_MODEL }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000013",
+      "name": "Shape response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Generated from src/answer.js by scripts/build-workflow.js.\n// Edit the source file and run `npm run build:workflow`; changes made here are overwritten.\nconst lib = (() => {\n  const module = { exports: {} };\n// Builds the chat completions request from normalized results, and shapes the\n// final webhook response. This file is inlined into the \"Build LLM request\" and\n// \"Shape response\" Code nodes by scripts/build-workflow.js, so it must stay\n// plain JS without require().\n\nconst SYSTEM_PROMPT = [\n  'You answer questions for a library chatbot.',\n  'Use only the numbered catalog results in the message. Cite them as [1], [2].',\n  'If the results do not answer the question, say so. Do not invent titles.',\n  'Keep the answer under 120 words.',\n].join(' ');\n\nfunction oneLine(value) {\n  return String(value == null ? '' : value).replace(/[\\s|]+/g, ' ').trim();\n}\n\nfunction formatResult(r, index) {\n  const available = r.available === true ? 'yes' : r.available === false ? 'no' : 'unknown';\n  return [\n    `[${index + 1}] ${oneLine(r.title)}`,\n    `authors: ${r.authors.length ? r.authors.map(oneLine).join(', ') : 'unknown'}`,\n    `year: ${r.year == null ? 'unknown' : r.year}`,\n    `available: ${available}`,\n    `url: ${r.url || 'none'}`,\n  ].join(' | ');\n}\n\n// ctx: { question, libraryName, results } from the Normalize step.\n// The model name is added by the HTTP Request node from LLM_MODEL.\nfunction buildLlmRequest(ctx) {\n  const lines = [`Question: ${oneLine(ctx.question)}`, `Library: ${oneLine(ctx.libraryName)}`];\n  if (ctx.results.length) {\n    lines.push('Catalog results:', ...ctx.results.map(formatResult));\n  } else {\n    lines.push('Catalog results: none');\n  }\n  return {\n    temperature: 0.2,\n    messages: [\n      { role: 'system', content: SYSTEM_PROMPT },\n      { role: 'user', content: lines.join('\\n') },\n    ],\n  };\n}\n\n// completion: an OpenAI-style chat completions response body.\nfunction buildResponse(ctx, completion) {\n  const choice = completion && Array.isArray(completion.choices) ? completion.choices[0] : null;\n  const answer = choice && choice.message && typeof choice.message.content === 'string' ? choice.message.content.trim() : '';\n  if (!answer) throw new Error('The LLM response had no message content');\n  return {\n    library: ctx.library,\n    libraryName: ctx.libraryName,\n    question: ctx.question,\n    answer,\n    sources: ctx.results.map((r, i) => ({\n      ref: i + 1,\n      id: r.id,\n      title: r.title,\n      authors: r.authors,\n      year: r.year,\n      available: r.available,\n      url: r.url,\n    })),\n    model: completion.model || null,\n  };\n}\n\n// Entry points used by the two Code nodes.\nfunction buildLlmRequestInN8n({ $input }) {\n  const ctx = $input.first().json;\n  return [{ json: { ...ctx, llmRequest: buildLlmRequest(ctx) } }];\n}\n\nfunction buildResponseInN8n({ $input, $ }) {\n  const ctx = $('Build LLM request').first().json;\n  return [{ json: buildResponse(ctx, $input.first().json) }];\n}\n\nmodule.exports = { SYSTEM_PROMPT, buildLlmRequest, buildResponse, formatResult, buildLlmRequestInN8n, buildResponseInN8n };\n  return module.exports;\n})();\nreturn lib.buildResponseInN8n({ $input, $ });\n"
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000014",
+      "name": "Respond with answer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2080,
+        400
+      ],
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000015",
+      "name": "Note: adapters",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        660,
+        100
+      ],
+      "parameters": {
+        "content": "## Library adapters\nOne branch per library, with its own auth and request shape. Every branch ends in **Normalize results**.",
+        "height": 620,
+        "width": 500,
+        "color": 7
+      }
+    },
+    {
+      "id": "6a0f6f0e-1b7e-4b7a-9f3e-000000000016",
+      "name": "Note: generated code",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        220
+      ],
+      "parameters": {
+        "content": "## Shared steps\nThese Code nodes are generated from `src/*.js` by `npm run build:workflow`. Edit the source files, not the nodes.",
+        "height": 340,
+        "width": 860,
+        "color": 7
+      }
+    }
+  ],
+  "connections": {
+    "Chat webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare request": {
+      "main": [
+        [
+          {
+            "node": "Route by library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by library": {
+      "main": [
+        [
+          {
+            "node": "Respond: invalid request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Harbor: search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Summit: get token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meadow: search (XML)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: unknown library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Harbor: search": {
+      "main": [
+        [
+          {
+            "node": "Normalize results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summit: get token": {
+      "main": [
+        [
+          {
+            "node": "Summit: query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summit: query": {
+      "main": [
+        [
+          {
+            "node": "Normalize results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meadow: search (XML)": {
+      "main": [
+        [
+          {
+            "node": "Normalize results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize results": {
+      "main": [
+        [
+          {
+            "node": "Build LLM request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build LLM request": {
+      "main": [
+        [
+          {
+            "node": "Ask LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape response": {
+      "main": [
+        [
+          {
+            "node": "Respond with answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask LLM": {
+      "main": [
+        [
+          {
+            "node": "Shape response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}
