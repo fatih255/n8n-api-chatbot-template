@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library chat demo</title>
+<style>
+  :root { --ink: #1d2433; --muted: #5b6475; --line: #dde2ea; --bg: #f6f7f9; --card: #fff; --accent: #1f6feb; --ok: #1a7f37; --no: #9a3412; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 40px; }
+  header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 22px; margin: 0; }
+  .tag { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; background: var(--card); }
+  p.lead { color: var(--muted); margin: 6px 0 18px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  select, input, button { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+  input { flex: 1 1 320px; }
+  button { background: var(--accent); border-color: var(--accent); color: #fff; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+  h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .answer { font-size: 16px; margin: 0 0 12px; }
+  ol { margin: 0; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .yes { color: var(--ok); } .no { color: var(--no); }
+  pre { margin: 0; font: 12.5px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 560px; overflow: auto; }
+  .status { font: 13px ui-monospace, Consolas, monospace; color: var(--muted); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Library chat</h1>
+    <span class="tag">Demo page</span>
+  </header>
+  <p class="lead">Sends your question to the n8n webhook. The workflow queries the chosen mock catalog API, normalizes the records and asks the LLM endpoint (a local mock by default) for an answer with sources. Everything below is the real webhook response.</p>
+
+  <form id="ask">
+    <select id="library" aria-label="Library">
+      <option value="harbor">Harbor Library (API key header, JSON)</option>
+      <option value="summit">Summit Library (token login, JSON)</option>
+      <option value="meadow">Meadow Library (query key, XML)</option>
+    </select>
+    <input id="question" aria-label="Question" value="Do you have books about urban gardening?">
+    <button type="submit">Ask</button>
+  </form>
+
+  <div class="grid">
+    <section>
+      <h2>Answer</h2>
+      <div id="answer"><p class="meta">Ask a question to see the answer.</p></div>
+    </section>
+    <section>
+      <h2>Webhook response</h2>
+      <div class="status" id="status"></div>
+      <pre id="raw"></pre>
+    </section>
+  </div>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function render(result) {
+    const r = result.response;
+    $('status').textContent = `POST ${result.webhook} -> HTTP ${result.status} in ${result.ms} ms`;
+    $('raw').textContent = JSON.stringify(r, null, 2);
+    if (!r || r.error || !r.answer) {
+      $('answer').innerHTML = `<p class="no">${esc((r && r.error) || 'No answer')}</p>`;
+      return;
+    }
+    const sources = r.sources.map((s) => `
+      <li><strong>${esc(s.title)}</strong> by ${esc(s.authors.join(', ') || 'unknown')}${s.year ? ` (${s.year})` : ''}
+        <span class="${s.available ? 'yes' : 'no'}">${s.available === null ? 'availability unknown' : s.available ? 'available' : 'on loan'}</span>
+        <div class="meta">${esc(s.id)}</div></li>`).join('');
+    $('answer').innerHTML = `
+      <p class="answer">${esc(r.answer)}</p>
+      <h2>Sources from ${esc(r.libraryName)}</h2>
+      ${sources ? `<ol>${sources}</ol>` : '<p class="meta">No matching records.</p>'}
+      <p class="meta">Model: ${esc(r.model || 'unknown')}</p>`;
+  }
+
+  async function ask(library, question) {
+    $('status').textContent = 'Waiting for the workflow...';
+    const res = await fetch('/api/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ library, question }) });
+    render(await res.json());
+  }
+
+  $('ask').addEventListener('submit', (e) => { e.preventDefault(); ask($('library').value, $('question').value); });
+
+  const params = new URLSearchParams(location.search);
+  if (params.get('library')) {
+    $('library').value = params.get('library');
+    if (params.get('q')) $('question').value = params.get('q');
+    ask($('library').value, $('question').value);
+  }
+</script>
+</body>
+</html>

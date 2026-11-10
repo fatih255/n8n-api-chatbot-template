@@ -1,0 +1,134 @@
+name: n8nchat
+
+x-mock: &mock
+  image: node:24.22.2-alpine
+  working_dir: /app
+  volumes:
+    - ./mocks:/app/mocks:ro
+  restart: unless-stopped
+
+services:
+  n8n:
+    image: n8nio/n8n:2.47.3
+    # Imports and publishes workflows/library-chat.json, then starts n8n.
+    entrypoint: ["/bin/sh", "/docker/n8n-start.sh"]
+    ports:
+      - "127.0.0.1:15678:5678"
+    environment:
+      N8N_PORT: "5678"
+      N8N_HOST: localhost
+      N8N_WEBHOOK_URL: http://localhost:15678/
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-local-demo-encryption-key-not-secret}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_HIRING_BANNER_ENABLED: "false"
+      GENERIC_TIMEZONE: UTC
+      # The workflow reads API URLs and keys with $env so it works right after import.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      HARBOR_API_URL: http://harbor:15671
+      HARBOR_API_KEY: ${HARBOR_API_KEY:-harbor-demo-key}
+      SUMMIT_API_URL: http://summit:15672
+      SUMMIT_CLIENT_ID: ${SUMMIT_CLIENT_ID:-summit-demo-client}
+      SUMMIT_CLIENT_SECRET: ${SUMMIT_CLIENT_SECRET:-summit-demo-secret}
+      MEADOW_API_URL: http://meadow:15673
+      MEADOW_API_KEY: ${MEADOW_API_KEY:-meadow-demo-key}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://mock-llm:15674/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-mock-llm-key}
+      LLM_MODEL: ${LLM_MODEL:-mock-catalog-llm}
+    volumes:
+      - ./workflows:/workflows:ro
+      - ./docker:/docker:ro
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz/readiness >/dev/null || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+    depends_on:
+      harbor: { condition: service_healthy }
+      summit: { condition: service_healthy }
+      meadow: { condition: service_healthy }
+      mock-llm: { condition: service_healthy }
+    restart: unless-stopped
+
+  # One-shot: creates the local owner account so you can log in to the editor.
+  n8n-setup:
+    image: node:24.22.2-alpine
+    working_dir: /app
+    command: ["node", "docker/setup-owner.js"]
+    volumes:
+      - ./docker:/app/docker:ro
+    environment:
+      N8N_URL: http://n8n:5678
+      N8N_OWNER_EMAIL: ${N8N_OWNER_EMAIL:-owner@example.test}
+      N8N_OWNER_PASSWORD: ${N8N_OWNER_PASSWORD:-Demo-owner-pass-1}
+    depends_on:
+      n8n: { condition: service_healthy }
+    restart: "no"
+
+  harbor:
+    <<: *mock
+    command: ["node", "mocks/harbor.js"]
+    environment:
+      PORT: "15671"
+      HARBOR_API_KEY: ${HARBOR_API_KEY:-harbor-demo-key}
+    ports:
+      - "127.0.0.1:15671:15671"
+    healthcheck: &mock-health
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$$PORT/health >/dev/null || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  summit:
+    <<: *mock
+    command: ["node", "mocks/summit.js"]
+    environment:
+      PORT: "15672"
+      SUMMIT_CLIENT_ID: ${SUMMIT_CLIENT_ID:-summit-demo-client}
+      SUMMIT_CLIENT_SECRET: ${SUMMIT_CLIENT_SECRET:-summit-demo-secret}
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck: *mock-health
+
+  meadow:
+    <<: *mock
+    command: ["node", "mocks/meadow.js"]
+    environment:
+      PORT: "15673"
+      MEADOW_API_KEY: ${MEADOW_API_KEY:-meadow-demo-key}
+    ports:
+      - "127.0.0.1:15673:15673"
+    healthcheck: *mock-health
+
+  mock-llm:
+    <<: *mock
+    command: ["node", "mocks/llm.js"]
+    environment:
+      PORT: "15674"
+      MOCK_LLM_API_KEY: mock-llm-key
+    ports:
+      - "127.0.0.1:15674:15674"
+    healthcheck: *mock-health
+
+  # Small demo page that sends a question to the webhook and shows the JSON reply.
+  demo:
+    <<: *mock
+    command: ["node", "demo/server.js"]
+    volumes:
+      - ./mocks:/app/mocks:ro
+      - ./demo:/app/demo:ro
+    environment:
+      PORT: "15670"
+      WEBHOOK_URL: http://n8n:5678/webhook/library-chat
+    ports:
+      - "127.0.0.1:15670:15670"
+    depends_on:
+      n8n: { condition: service_healthy }
+    healthcheck: *mock-health
+
+volumes:
+  n8n_data:
